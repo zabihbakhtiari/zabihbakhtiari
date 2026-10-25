@@ -1,4 +1,4 @@
-[README.md](https://github.com/user-attachments/files/33918906/README.md)<!--
+
   Zabih Bakhtiari (zabihbakhtiari): full-stack developer and SEO director.
   Co-founder of Launch Nest Studio, a digital agency building websites, web apps and SEO for Australian trades and local businesses.
   Ravan Studio: AI visibility scoring for Shopify stores. Holistic SEO, topical authority, schema, GEO and AEO.
