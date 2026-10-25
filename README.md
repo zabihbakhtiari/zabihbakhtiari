@@ -23,7 +23,7 @@
 </details>
 
 <p align="center">
-  <b>Zabih Bakhtiari</b> builds websites, web apps and search visibility for Australian trades and local businesses.<br />
+  <b>Hi I'm Zabih Bakhtiari</b> Who builds websites, web apps and search visibility for Australian trades and local businesses.<br />
   Full-stack developer, SEO director and co-founder of Launch Nest Studio and Ravan Studio.
 </p>
 
