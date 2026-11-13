@@ -1,0 +1,13 @@
+# Local editor and tooling config
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+GEMINI.md
+.cursor/
+.cursorrules
+.windsurfrules
+.mcp.json
+.aider*
+.github/copilot-instructions.md
+__pycache__/
