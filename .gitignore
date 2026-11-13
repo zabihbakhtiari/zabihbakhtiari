@@ -11,3 +11,5 @@ GEMINI.md
 .aider*
 .github/copilot-instructions.md
 __pycache__/
+fonts/
+__pycache__/
