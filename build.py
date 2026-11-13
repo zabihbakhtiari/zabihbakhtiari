@@ -574,7 +574,7 @@ def portfolio(p: Panel):
 
 
 SEO_CASE = {
-    "title": "Scrap metal recycler, South Australia",
+    "title": "Copper scrap recycler, South Australia",
     "domain": "s*************.com.au",          # client name hidden
     "source": "SEMRUSH  ·  AU DATABASE  ·  13 NOV 2026",
     "ai_mentions": 23, "ai_visibility": 24, "cited_pages": 15,
@@ -665,7 +665,7 @@ def seo_case(p: Panel):
         else:
             b.append(p.text(M, vis, 960, ry + 24, 14, t["text"], anchor="end"))
     h = int(y2 + 22 + 5 * 36 + 40)
-    alt = (f"SEO and AI search result for a scrap metal recycler in South Australia (client name hidden): "
+    alt = (f"SEO and AI search result for a copper scrap recycling company in South Australia (client name hidden): "
            f"{c['ai_mentions']} mentions in AI answers across AI Overviews, ChatGPT, Gemini and AI Mode, "
            f"{c['cited_pages']} pages cited, 2.2K organic visits a month (+22%), 1.3K ranking keywords, "
            f"374 referring domains, 3.8K backlinks, and the top cited source for its topic.")

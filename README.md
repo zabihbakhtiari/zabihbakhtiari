@@ -34,7 +34,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/seo-case-dark.svg" />
   <source media="(prefers-color-scheme: light)" srcset="./assets/seo-case-light.svg" />
-  <img src="./assets/seo-case-light.svg" width="100%" alt="SEO and AI search result for a scrap metal recycler in South Australia (client name hidden): 23 mentions in AI answers across AI Overviews, ChatGPT, Gemini and AI Mode, 15 pages cited, 2.2K organic visits a month (+22%), 1.3K ranking keywords, 374 referring domains, 3.8K backlinks, and the top cited source for its topic." />
+  <img src="./assets/seo-case-light.svg" width="100%" alt="SEO and AI search result for a copper scrap recycling company in South Australia (client name hidden): 23 mentions in AI answers across AI Overviews, ChatGPT, Gemini and AI Mode, 15 pages cited, 2.2K organic visits a month (+22%), 1.3K ranking keywords, 374 referring domains, 3.8K backlinks, and the top cited source for its topic." />
 </picture>
 
 <br />
