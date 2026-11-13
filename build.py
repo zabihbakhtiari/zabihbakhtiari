@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import base64
 import json
+import random
+import re
 from html import escape
 from pathlib import Path
 
@@ -42,9 +44,35 @@ SAME_AS = ["launchnest.com.au", "ravan.studio", "linkedin.com/in/zabih-bakhtiari
 
 FACTS = [
     ("ROLE", "Full-stack developer", "and SEO director"),
+    ("SHIPPED", "300+ websites", "for local businesses"),
     ("CO-FOUNDER", "Launch Nest Studio", "and Ravan Studio"),
     ("LATEST SHIP", "Amin Building Supplies", "Shopify, Dandenong South"),
 ]
+
+SITES_BUILT = "300+"
+
+# Client sites on the hosting account (the full list runs past 300). Names are masked:
+# * marks hidden letters, drawn as blurred filler so the real names never reach the SVGs.
+DOMAINS = [
+    "aad**********.com.au", "aus************.com.au", "bec********.com.au", "loc*************.com.au",
+    "nek****************.com.au", "jaf****.com.au", "joh*********.com.au", "exp*************.com.au",
+    "met***********.com.au", "atl*******.au", "cbr*********.com.au", "atl***********.com.au", "ba****.au",
+    "gee*******************.org.au", "mpp*************.com.au", "bro***********.com.au",
+    "tra***********.com.au", "hrt*****.com.au", "dan*********.com.au", "key*********.com.au",
+    "sma*********.com.au", "ajc*********.com.au", "yaw*************.com.au", "azi******************.com.au",
+    "ans*********.com.au", "a1t*******.com.au", "pr***.com.au", "a1c**********.com.au",
+    "nat******************.com.au", "car******.au", "fas***********.au", "pbc**********.com.au",
+    "loc***********.com.au", "eve******.net.au", "asp******.com.au", "cro*********.com.au",
+    "shs*************.com.au", "qui************.com.au", "mel****************.au", "jqm********.com.au",
+    "dan****************.com.au", "goo**************.com.au", "cle**********.com.au",
+    "top*************.com.au", "naa*****.com.au", "skt*****.com.au", "mgt**************.com.au",
+    "red*******.com.au", "pro**************.com.au", "tow****************.com.au",
+    "ozr*****************.com.au", "ar****.org", "so***.org.af", "aminbuildingsupplies.com.au",
+]
+
+INDUSTRIES = ["Towing", "Car removals", "Wreckers & auto parts", "Scrap metal", "Painting", "Tiling",
+              "Bathrooms & renovations", "Plumbing", "Building", "Welding", "Driving schools", "Migration",
+              "Community groups", "Retail"]
 
 AMIN_FEATURES = [
     ("Trade-first catalogue", "Tiles, tapware, bathroomware, sinks and lighting, sorted the way trades search."),
@@ -98,30 +126,6 @@ STACK = [
     ("SEARCH", ["Topical maps", "Schema & JSON-LD", "Entity SEO", "GEO & AEO", "Search Console"]),
 ]
 
-FAQ = [
-    ("Who is Zabih Bakhtiari?",
-     f'A full-stack developer and SEO director, and co-founder of <a href="{LINKS["launchnest"]}">Launch Nest Studio</a> '
-     f'and <a href="{LINKS["ravan"]}">Ravan Studio</a>. He builds websites, web apps and search visibility for '
-     "Australian trades and local businesses."),
-    ("What have you shipped recently?",
-     f'<a href="{LINKS["amin"]}">Amin Building Supplies</a>, a Shopify store for a tiles, tapware and bathroomware '
-     "trade counter in Dandenong South, Melbourne, with a trade-first catalogue, shop-by-room pages and price-on-enquiry buying."),
-    ("What do Launch Nest Studio and Ravan Studio do?",
-     "Launch Nest Studio is a design, build and SEO studio in Adelaide working with businesses across Australia. "
-     "Ravan Studio is a web development, design and SEO agency covering web apps, WooCommerce stores, brand identities and entity-based SEO."),
-    ("Do you use page builders?",
-     "Where speed and control matter, no. I build custom WordPress themes and Shopify stores by hand, which keeps sites fast, secure and easy to maintain."),
-    ("What is holistic SEO and topical authority?",
-     "Instead of chasing single keywords, you cover a topic completely: a topical map of every service, question and location, "
-     "linked together with clear structure and schema. Search engines and AI answer engines then treat the site as the authority on that topic."),
-    ("What is GEO and AEO?",
-     "Generative engine optimisation and answer engine optimisation: making sure a business is understood, trusted and cited by AI tools "
-     "like ChatGPT, Perplexity and Google's AI Overviews, not just ranked in the blue links."),
-    ("How do I work with you?",
-     f'Start at <a href="{LINKS["launchnest"]}">launchnest.com.au</a> or <a href="{LINKS["ravan"]}">ravan.studio</a>, '
-     f'or message me on <a href="{LINKS["linkedin"]}">LinkedIn</a>.'),
-]
-
 # ════════════════════════════════════════════════════════════════════════════
 # THEME + TYPE
 # ════════════════════════════════════════════════════════════════════════════
@@ -137,7 +141,7 @@ D = Face("d", "Archivo-VF.ttf", {"wght": 800, "wdth": 125})   # display
 H = Face("h", "Archivo-VF.ttf", {"wght": 640, "wdth": 100})   # headings
 B = Face("b", "Archivo-VF.ttf", {"wght": 400, "wdth": 100})   # body
 N = Face("n", "Archivo-VF.ttf", {"wght": 700, "wdth": 112})   # numbers
-M = Face("m", "JetBrainsMono-VF.ttf", {"wght": 500})          # labels
+M = Face("m", "JetBrainsMono-VF.ttf", {"wght": 600})          # labels
 
 EASE = "cubic-bezier(.16,1,.3,1)"
 CSS = f"""
@@ -195,7 +199,28 @@ class Panel:
         lines = wrap(face, s, size, max_w)
         return "".join(self.text(face, ln, x, y + i * lh, size, fill or self.t["muted"], **kw) for i, ln in enumerate(lines)), len(lines)
 
-    def label(self, s, x, y, fill=None, size=12, anchor="start"):
+    def blur(self) -> str:
+        if not getattr(self, "_blur_defined", False):
+            self._blur_defined = True
+            self.defs.append('<filter id="bl" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="3.2"/></filter>')
+        return "bl"
+
+    def masked(self, s, x, y, size, fill, face=None):
+        """Mono text where '*' marks hidden letters: drawn as blurred random filler, never the real ones."""
+        face = face or M
+        m = re.fullmatch(r"([^*]*)(\*+)(.*)", s)
+        if not m:
+            return self.text(face, s, x, y, size, fill)
+        pre, stars, post = m.groups()
+        rnd = random.Random(s)
+        filler = "".join(rnd.choice("abcdeghkmnoprstuwy") for _ in stars)
+        x1 = x + face.width(pre, size)
+        x2 = x1 + face.width(filler, size)
+        return (self.text(face, pre, x, y, size, fill)
+                + f'<g filter="url(#{self.blur()})" opacity=".9">{self.text(face, filler, x1, y, size, fill)}</g>'
+                + self.text(face, post, x2, y, size, fill))
+
+    def label(self, s, x, y, fill=None, size=13.5, anchor="start"):
         return self.text(M, s, x, y, size, fill or self.t["muted"], track=0.12, anchor=anchor)
 
     def image(self, name, x, y, w, h, r=0, cls=""):
@@ -212,7 +237,7 @@ class Panel:
         for i in range(3):
             out.append(f'<circle cx="{x + 16 + i * 14}" cy="{y + chrome / 2}" r="4" fill="{t["line2"]}"/>')
         out.append(f'<rect x="{x + 70}" y="{y + 7}" width="{min(300, w - 140)}" height="{chrome - 14}" rx="{(chrome - 14) / 2}" fill="{t["bg"]}"/>')
-        out.append(self.text(M, url, x + 84, y + chrome / 2 + 3.5, 10.5, t["muted"]))
+        out.append(self.text(M, url, x + 84, y + chrome / 2 + 4, 12, t["muted"]))
         for i, name in enumerate(slides):
             out.append(self.image(name, x, y + chrome, w, ih, 0, "" if i == 0 else f"s{i + 1}"))
         out.append(f'<rect x="{x}" y="{y + chrome}" width="{w}" height="0.8" fill="{t["line"]}"/>')
@@ -265,10 +290,10 @@ def hero(p: Panel):
     # sameAs block beside ZABIH
     sx = 40 + D.width("ZABIH", size) + 56
     top = y1 - cap
-    blk = [p.text(M, '"sameAs": [', sx, top + 11, 12.5, t["ink"])]
-    lh = (cap - 11) / len(SAME_AS)
+    blk = [p.text(M, '"sameAs": [', sx, top + 12, 14, t["ink"])]
+    lh = (cap - 12) / len(SAME_AS)
     for i, s in enumerate(SAME_AS):
-        blk.append(p.text(M, f'"{s}"' + ("," if i < len(SAME_AS) - 1 else " ]"), sx + 18, top + 11 + lh * (i + 1), 12.5, t["muted"]))
+        blk.append(p.text(M, f'"{s}"' + ("," if i < len(SAME_AS) - 1 else " ]"), sx + 18, top + 12 + lh * (i + 1), 14, t["muted"]))
     b.append(f'<rect class="gr" style="{delay(3.3)}" x="{sx - 20:.0f}" y="{top:.0f}" width="2" height="{cap:.0f}" fill="{t["accent"]}"/>')
     b.append(f'<g class="fd" style="{delay(3.4)}">{"".join(blk)}</g>')
 
@@ -281,7 +306,7 @@ def hero(p: Panel):
     yf = ys + 40
     b.append(f'<rect x="40" y="{yf:.0f}" width="920" height="1" fill="{t["line"]}"/>')
     for i, (lab, a, c) in enumerate(FACTS):
-        x = 40 + i * 320
+        x = 40 + i * 232
         b.append(f'<g class="rv" style="{delay(3.6 + i * 0.1)}">' + p.label(lab, x, yf + 36, t["faint"])
                  + p.text(H, a, x, yf + 66, 19) + p.text(B, c, x, yf + 90, 16, t["muted"]) + "</g>")
     h = int(yf + 124)
@@ -332,9 +357,9 @@ def work_amin(p: Panel, data: dict):
     cw = 920 / 4
     for i, (title, desc) in enumerate(AMIN_FEATURES):
         x = 40 + i * cw
-        para, _ = p.para(B, desc, x, yf + 56, 15, cw - 28, 21)
+        para, _ = p.para(B, desc, x, yf + 58, 16, cw - 24, 22)
         b.append(f'<g class="rv" style="{delay(0.2 + i * 0.1)}"><rect x="{x:.0f}" y="{yf}" width="28" height="3" fill="{t["accent"]}"/>'
-                 + p.text(H, title, x, yf + 30, 18) + para + "</g>")
+                 + p.text(H, title, x, yf + 30, 19) + para + "</g>")
 
     # numbers
     yn = yf + 150
@@ -344,8 +369,8 @@ def work_amin(p: Panel, data: dict):
     for i, (v, lab) in enumerate(nums):
         x = 40 + i * 184
         b.append(f'<g class="rv" style="{delay(0.5 + i * 0.08)}">' + p.text(N, str(v), x - 2, yn + 72, 52)
-                 + p.text(B, lab, x, yn + 100, 15, t["muted"]) + "</g>")
-    b.append(p.label(f"COUNTED FROM THE LIVE STORE'S CATALOGUE AND SITEMAP, {data['counted_on']}", 40, yn + 142, t["faint"], 11))
+                 + p.text(B, lab, x, yn + 100, 16, t["muted"]) + "</g>")
+    b.append(p.label(f"COUNTED FROM THE LIVE STORE'S CATALOGUE AND SITEMAP, {data['counted_on']}", 40, yn + 142, t["faint"], 12.5))
     h = int(yn + 174)
     alt = (f"Amin Building Supplies: real screens of the Shopify store on desktop and mobile. {data['products']} products, "
            f"{data['collections']} collections, {data['product_types']} product types, {data['brands']} brands and "
@@ -355,7 +380,7 @@ def work_amin(p: Panel, data: dict):
 
 def studios(p: Panel):
     t = p.t
-    b = [p.runs([(M, "SELECTED WORK 02", t["muted"]), (M, "  ·  STUDIOS I CO-FOUNDED", t["faint"])], 40, 58, 12, track=0.12)]
+    b = [p.runs([(M, "SELECTED WORK 03", t["muted"]), (M, "  ·  STUDIOS I CO-FOUNDED", t["faint"])], 40, 58, 12, track=0.12)]
     cw = 440
     bottom = 0
     for i, (img, title, url_txt, url, desc) in enumerate(STUDIOS):
@@ -382,7 +407,7 @@ def method(p: Panel):
         sc = "#FFE2D3" if strong else t["muted"]
         return (f'<g class="pp" style="{delay(d)}"><rect x="{x:.1f}" y="{y}" width="{w}" height="{h}" rx="8" fill="{fill}" '
                 f'stroke="{t["accent"] if strong else t["line"]}"/>' + p.text(H, title, x + w / 2, y + h / 2 - 1, 16, tc, anchor="middle")
-                + p.text(M, sub, x + w / 2, y + h / 2 + 16, 10, sc, anchor="middle") + "</g>")
+                + p.text(M, sub, x + w / 2, y + h / 2 + 17, 11.5, sc, anchor="middle") + "</g>")
 
     def line(d_, dl):
         return f'<path class="dr" style="{delay(dl)}" pathLength="1" d="{d_}" fill="none" stroke="{t["line2"]}" stroke-width="1.5"/>'
@@ -406,7 +431,7 @@ def method(p: Panel):
         for j, leaf in enumerate(leaves):
             ly = y_l + j * 38
             nodes.append(f'<g class="pp" style="{delay(1.1 + i * 0.06 + j * 0.05)}"><rect x="{px + 10:.1f}" y="{ly}" width="{pil_w - 20}" height="30" rx="15" '
-                         f'fill="{t["bg"]}" stroke="{t["line2"]}"/>' + p.text(B, leaf, pcx, ly + 20, 13.5, t["text"], anchor="middle") + "</g>")
+                         f'fill="{t["bg"]}" stroke="{t["line2"]}"/>' + p.text(B, leaf, pcx, ly + 20.5, 15, t["text"], anchor="middle") + "</g>")
     out_w = 258
     outs = [("Google Search", "rankings · rich results"), ("AI answers", "ChatGPT · Perplexity · AI Overviews")]
     for k, (title, sub) in enumerate(outs):
@@ -416,16 +441,16 @@ def method(p: Panel):
             pcx = pil_x0 + i * (pil_w + gap) + pil_w / 2
             lines.append(line(f"M{pcx:.1f} {y_l + 68}C{pcx:.1f} {y_l + 104} {ocx:.1f} {y_o - 36} {ocx:.1f} {y_o}", 1.5))
         nodes.append(f'<g class="pp" style="{delay(2.0 + k * 0.1)}"><rect x="{x}" y="{y_o}" width="{out_w}" height="58" rx="8" fill="{t["panel2"]}" stroke="{t["line2"]}"/>'
-                     + p.text(H, title, ocx, y_o + 27, 16, anchor="middle") + p.text(M, sub, ocx, y_o + 44, 10, t["muted"], anchor="middle") + "</g>")
+                     + p.text(H, title, ocx, y_o + 27, 16, anchor="middle") + p.text(M, sub, ocx, y_o + 45, 11, t["muted"], anchor="middle") + "</g>")
     b += lines + nodes
 
     nx, ny = 630, top
     for i, (title, desc) in enumerate(METHOD_NOTES):
-        para, n = p.para(B, desc, nx + 40, ny + 52, 15, 290, 21)
+        para, n = p.para(B, desc, nx + 40, ny + 54, 16, 290, 23)
         b.append(f'<g class="rv" style="{delay(0.4 + i * 0.15)}"><rect x="{nx}" y="{ny + 10}" width="26" height="26" rx="4" fill="{t["accent"]}"/>'
                  + p.text(M, str(i + 1), nx + 13, ny + 28, 13, t["on"], anchor="middle")
                  + p.text(H, title, nx + 40, ny + 30, 19) + para + "</g>")
-        ny += 52 + n * 21 + 14
+        ny += 54 + n * 23 + 14
     h = int(max(y_o + 58, ny) + 44)
     alt = ("How a site gets found: the business as an entity, pillars for services, suburbs, proof and questions, "
            "each with its own pages and schema, all feeding Google Search and AI answers.")
@@ -444,7 +469,7 @@ def snags(p: Panel):
         anchor, tx = "start", x - 8
         b.append(f'<circle class="pp" style="{delay(0.3 + i * 0.6)}" cx="{x:.1f}" cy="{y}" r="8" fill="{t["accent"]}" stroke="{t["bg"]}" stroke-width="4"/>')
         b.append(f'<g class="rv" style="{delay(0.4 + i * 0.6)}">' + p.text(H, title, tx, y + 42, 19, anchor=anchor)
-                 + p.text(B, sub, tx, y + 66, 15, t["muted"], anchor=anchor) + "</g>")
+                 + p.text(B, sub, tx, y + 66, 16, t["muted"], anchor=anchor) + "</g>")
 
     y = 300
     b.append(p.runs([(M, "THE SNAG LIST", t["ink"]), (M, "  ·  FOUND ON TRADE SITES, FIXED BEFORE LAUNCH", t["faint"])], 40, y, 12, track=0.12))
@@ -474,7 +499,7 @@ def stack(p: Panel):
     rows = max(len(i) for _, i in STACK)
     for c, (cat, items) in enumerate(STACK):
         x = 40 + c * cw
-        g = [p.text(M, cat, x, 100, 11.5, t["ink"], track=0.1), f'<rect x="{x:.0f}" y="114" width="{cw - 20:.0f}" height="1" fill="{t["line2"]}"/>']
+        g = [p.text(M, cat, x, 100, 13, t["ink"], track=0.08), f'<rect x="{x:.0f}" y="114" width="{cw - 20:.0f}" height="1" fill="{t["line2"]}"/>']
         for r, it in enumerate(items):
             g.append(p.text(B, it, x, 148 + r * 32, 17))
         b.append(f'<g class="rv" style="{delay(c * 0.08)}">{"".join(g)}</g>')
@@ -483,88 +508,248 @@ def stack(p: Panel):
     return h, alt, "".join(b)
 
 
+def portfolio(p: Panel):
+    t = p.t
+    b = [p.runs([(M, "PORTFOLIO", t["muted"]), (M, "  ·  LIVE ON THE HOSTING ACCOUNT", t["faint"])], 40, 58, 13.5, track=0.12)]
+    size = 168
+    base = 84 + size * 0.72
+    b.append('<g class="rv">' + p.runs([(D, SITES_BUILT[:-1], t["text"]), (D, "+", t["accent"])], 32, base, size) + "</g>")
+    nx = 40 + D.width(SITES_BUILT, size) + 44
+    b.append(f'<g class="rv" style="{delay(0.15)}">' + p.text(H, "websites built", nx, base - 70, 32)
+             + p.text(H, "and launched.", nx, base - 32, 32, t["ink"]) + "</g>")
+    para, _ = p.para(B, "For trades, auto, retail and community groups.", nx, base + 4, 17, 960 - nx, 23)
+    b.append(f'<g class="fd" style="{delay(0.3)}">{para}</g>')
+
+    # scrolling rows of real domains, faded at the edges
+    mid = p.uid("m")
+    gid = p.uid("g")
+    p.defs.append(f'<linearGradient id="{gid}" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/>'
+                  f'<stop offset=".07" stop-color="#fff"/><stop offset=".93" stop-color="#fff"/>'
+                  f'<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'
+                  f'<mask id="{mid}" maskUnits="userSpaceOnUse" x="0" y="0" width="{W}" height="2000">'
+                  f'<rect x="1" y="0" width="{W - 2}" height="2000" fill="url(#{gid})"/></mask>')
+    y0 = base + 54
+    rows, ph, size_t = 4, 42, 15
+    css = []
+    g = [f'<g mask="url(#{mid})">']
+    for r in range(rows):
+        items = DOMAINS[r::rows]
+        pills, x = [], 0.0
+        for d in items:
+            w = M.width(d, size_t) + 36
+            hot = d.startswith("aminbuilding")
+            pills.append(f'<rect x="{x:.1f}" y="0" width="{w:.1f}" height="{ph}" rx="{ph / 2}" fill="{t["panel"]}" '
+                         f'stroke="{t["accent"] if hot else t["line"]}"/>'
+                         + p.masked(d, x + 18, ph / 2 + 5.2, size_t, t["ink"] if hot else t["text"]))
+            x += w + 12
+        row_w = x
+        cls = p.uid("mq")
+        frm, to = (0, -row_w) if r % 2 == 0 else (-row_w, 0)
+        css.append(f".{cls}{{animation:{cls} {row_w / 34:.0f}s linear infinite}}"
+                   f"@keyframes {cls}{{from{{transform:translateX({frm:.0f}px)}}to{{transform:translateX({to:.0f}px)}}}}")
+        content = "".join(pills)
+        g.append(f'<g transform="translate({20 if r % 2 else 0} {y0 + r * (ph + 12):.0f})"><g class="{cls}">'
+                 f'{content}<g transform="translate({row_w:.1f} 0)">{content}</g></g></g>')
+    g.append("</g>")
+    p.defs.append(f"<style>{''.join(css)}</style>")
+    b += g
+
+    # industries
+    yi = y0 + rows * (ph + 12) + 40
+    b.append(p.label("BUILT FOR", 40, yi, t["faint"]))
+    x, y = 40, yi + 18
+    chips = []
+    for ind in INDUSTRIES:
+        w = B.width(ind, 16) + 32
+        if x + w > 960:
+            x, y = 40, y + 44
+        chips.append(f'<rect x="{x:.1f}" y="{y:.0f}" width="{w:.1f}" height="34" rx="17" fill="none" stroke="{t["line2"]}"/>'
+                     + p.text(B, ind, x + 16, y + 22.5, 16, t["muted"]))
+        x += w + 8
+    b.append(f'<g class="fd" style="{delay(0.5)}">{"".join(chips)}</g>')
+    h = int(y + 34 + 44)
+    alt = f"{SITES_BUILT} websites built and launched, for trades, auto, retail and community organisations. Client names are blurred."
+
+    return h, alt, "".join(b)
+
+
+SEO_CASE = {
+    "title": "Scrap metal recycler, South Australia",
+    "domain": "s*************.com.au",          # client name hidden
+    "source": "SEMRUSH  ·  AU DATABASE  ·  13 NOV 2026",
+    "ai_mentions": 23, "ai_visibility": 24, "cited_pages": 15,
+    "engines": [("AI Overviews", 13), ("ChatGPT", 6), ("Gemini", 3), ("AI Mode", 1)],
+    "organic": [("2.2K", "organic visits a month", "+22%"), ("1.3K", "ranking keywords", None),
+                ("374", "referring domains", None), ("3.8K", "backlinks", None)],
+    "traffic_share": 33,
+    "cited": [("s*************.com.au", 19, True), ("re********************.com.au", 13, False),
+              ("sc**************.net.au", 8, False)],
+    "keywords": [("s.c.r.a.p.", "1.9K", "12"), ("scrap scrap yard", "1.6K", "18"), ("scrap and metal", "880", "10"),
+                 ("copper recycling", "590", "7"), ("Own brand name", "210", "#1")],
+}
+
+
+def seo_case(p: Panel):
+    t = p.t
+    c = SEO_CASE
+    b = [p.runs([(M, "SELECTED WORK 02", t["muted"]), (M, "  ·  SEO + AI SEARCH", t["ink"])], 40, 58, 13.5, track=0.12)]
+    b.append(p.text(H, c["title"], 37, 116, 44))
+    dw = M.width(c["domain"], 14) + 32
+    b.append(f'<rect x="40" y="138" width="{dw:.0f}" height="30" rx="15" fill="{t["panel"]}" stroke="{t["line"]}"/>'
+             + p.masked(c["domain"], 56, 158, 14, t["text"]))
+    b.append(p.label(c["source"], 40 + dw + 18, 158, t["faint"], 12))
+
+    # AI search
+    y = 222
+    b.append(p.label("AI SEARCH", 40, y, t["ink"]))
+    b.append(f'<g class="rv">' + p.text(N, str(c["ai_mentions"]), 37, y + 78, 76)
+             + p.text(H, "mentions in AI answers", 150, y + 46, 21)
+             + p.text(B, f'{c["cited_pages"]} pages cited  ·  AI visibility {c["ai_visibility"]}', 150, y + 74, 16, t["muted"]) + "</g>")
+    top = max(n for _, n in c["engines"])
+    for i, (eng, n) in enumerate(c["engines"]):
+        ry = y + 116 + i * 38
+        bw = 250 * n / top
+        b.append(p.text(B, eng, 40, ry + 15, 16, t["text"]))
+        b.append(f'<rect x="170" y="{ry + 4}" width="250" height="14" rx="7" fill="{t["panel2"]}"/>')
+        b.append(f'<rect class="gr" style="{delay(0.3 + i * 0.12)}" x="170" y="{ry + 4}" width="{max(bw, 14):.0f}" height="14" rx="7" fill="{t["accent"]}"/>')
+        b.append(p.text(M, str(n), 470, ry + 16, 15, t["text"], anchor="end"))
+
+    # organic search
+    ox = 530
+    b.append(p.label("ORGANIC SEARCH", ox, y, t["ink"]))
+    for i, (num, lab, delta) in enumerate(c["organic"]):
+        cx, cy = ox + (i % 2) * 220, y + 22 + (i // 2) * 104
+        g = [f'<rect x="{cx}" y="{cy}" width="{210}" height="94" rx="12" fill="{t["panel"]}" stroke="{t["line"]}"/>',
+             p.text(N, num, cx + 18, cy + 52, 38), p.text(B, lab, cx + 18, cy + 78, 15, t["muted"])]
+        if delta:
+            nw = N.width(num, 38)
+            g.append(f'<rect x="{cx + 26 + nw:.0f}" y="{cy + 26}" width="54" height="24" rx="12" fill="{t["accent"]}"/>'
+                     + p.text(M, delta, cx + 53 + nw, cy + 42.5, 12.5, "#FFFFFF", anchor="middle"))
+        b.append(f'<g class="rv" style="{delay(0.2 + i * 0.08)}">{"".join(g)}</g>')
+    sy = y + 22 + 2 * 104 + 22
+    share = c["traffic_share"]
+    b.append(p.runs([(N, f"{share}%", t["text"]), (B, "  traffic share against competing sites", t["muted"])], ox, sy + 20, 18))
+    b.append(f'<rect x="{ox}" y="{sy + 34}" width="430" height="10" rx="5" fill="{t["panel2"]}"/>'
+             f'<rect class="gr" style="{delay(0.6)}" x="{ox}" y="{sy + 34}" width="{430 * share / 100:.0f}" height="10" rx="5" fill="{t["accent"]}"/>')
+
+    # most cited in AI answers
+    y2 = sy + 92
+    b.append(f'<rect x="40" y="{y2}" width="920" height="1" fill="{t["line"]}"/>')
+    y2 += 42
+    b.append(p.label("MOST CITED IN AI ANSWERS", 40, y2, t["faint"]))
+    topc = max(n for _, n, _ in c["cited"])
+    for i, (dom, n, client) in enumerate(c["cited"]):
+        ry = y2 + 22 + i * 48
+        col = t["ink"] if client else t["text"]
+        b.append(f'<rect x="40" y="{ry}" width="430" height="40" rx="10" fill="{t["panel"]}" stroke="{t["accent"] if client else t["line"]}"/>')
+        b.append(p.text(M, str(i + 1), 60, ry + 25.5, 14, t["faint"], anchor="middle"))
+        b.append(p.masked(dom, 82, ry + 25.5, 14, col))
+        b.append(f'<rect class="gr" style="{delay(0.5 + i * 0.1)}" x="{424 - 44 * n / topc:.0f}" y="{ry + 16}" width="{44 * n / topc:.0f}" height="8" rx="4" fill="{t["accent"] if client else t["line2"]}"/>')
+        b.append(p.text(M, str(n), 452, ry + 25.5, 14, col, anchor="end"))
+    b.append(p.text(B, "The client site is the top cited source for its topic.", 40, y2 + 22 + 3 * 48 + 22, 15, t["muted"]))
+
+    # top keywords
+    kx = 530
+    b.append(p.label("TOP KEYWORDS", kx, y2, t["faint"]))
+    b.append(p.text(M, "SEARCHES/MO", 860, y2, 11.5, t["faint"], anchor="end", track=0.06))
+    b.append(p.text(M, "VISITS", 960, y2, 11.5, t["faint"], anchor="end", track=0.06))
+    for i, (kw, vol, vis) in enumerate(c["keywords"]):
+        ry = y2 + 22 + i * 36
+        b.append(f'<rect x="{kx}" y="{ry}" width="430" height="1" fill="{t["line"]}"/>')
+        brand = vis.startswith("#")
+        b.append(p.text(B, kw, kx, ry + 24, 16, t["muted"] if brand else t["text"]))
+        b.append(p.text(M, vol, 860, ry + 24, 14, t["text"], anchor="end"))
+        if brand:
+            b.append(f'<rect x="{918}" y="{ry + 8}" width="42" height="22" rx="11" fill="{t["accent"]}"/>'
+                     + p.text(M, vis, 939, ry + 23.5, 12.5, "#FFFFFF", anchor="middle"))
+        else:
+            b.append(p.text(M, vis, 960, ry + 24, 14, t["text"], anchor="end"))
+    h = int(y2 + 22 + 5 * 36 + 40)
+    alt = (f"SEO and AI search result for a scrap metal recycler in South Australia (client name hidden): "
+           f"{c['ai_mentions']} mentions in AI answers across AI Overviews, ChatGPT, Gemini and AI Mode, "
+           f"{c['cited_pages']} pages cited, 2.2K organic visits a month (+22%), 1.3K ranking keywords, "
+           f"374 referring domains, 3.8K backlinks, and the top cited source for its topic.")
+    return h, alt, "".join(b)
+
+
 def contact(p: Panel):
     t = p.t
-    size = 56
-    b = [p.label("NEXT", 40, 58)]
-    b.append(f'<g class="rv">{p.text(D, "NEED A SITE", 38, 128, size)}</g>')
-    b.append(f'<g class="rv" style="{delay(0.1)}">' + p.runs([(D, "THAT GETS ", t["text"]), (D, "FOUND?", t["accent"])], 38, 194, size) + "</g>")
-    links = ["launchnest.com.au", "ravan.studio", "linkedin.com/in/zabih-bakhtiari"]
-    b.append(f'<rect x="40" y="226" width="920" height="1" fill="{t["line"]}"/>')
-    x = 40
-    for i, s in enumerate(links):
-        b.append(f'<g class="rv" style="{delay(0.3 + i * 0.1)}">' + p.text(M, s + " ↗", x, 266, 14, t["ink"] if i == 0 else t["text"]) + "</g>")
-        x += M.width(s + " ↗", 14) + 48
-    return 300, "Need a site that gets found? launchnest.com.au, ravan.studio, LinkedIn.", "".join(b)
+    size = 48
+    b = [p.label("NEXT", 40, 62)]
+    b.append(f'<g class="rv">{p.text(D, "NEED A SITE", 38, 132, size)}</g>')
+    b.append(f'<g class="rv" style="{delay(0.1)}">' + p.runs([(D, "THAT GETS ", t["text"]), (D, "FOUND?", t["accent"])], 38, 192, size) + "</g>")
+    b.append(f'<g class="fd" style="{delay(0.3)}">'
+             + p.text(B, "Websites, Shopify stores and SEO for Australian businesses.", 40, 240, 18, t["muted"]) + "</g>")
+    x0, y0, bw, bh = 700, 36, 260, 228
+    b.append(f'<g class="pp" style="{delay(0.2)}"><rect x="{x0}" y="{y0}" width="{bw}" height="{bh}" rx="16" fill="{t["accent"]}"/>'
+             + p.text(M, "START A PROJECT", x0 + 26, y0 + 44, 13.5, "#FFFFFF", track=0.1)
+             + f'<circle cx="{x0 + bw - 46}" cy="{y0 + 142}" r="24" fill="#FFFFFF"/>'
+             + f'<path d="M{x0 + bw - 55} {y0 + 151}l18-18m-12 0h12v12" fill="none" stroke="{t["accent"]}" stroke-width="2.6" '
+               f'stroke-linecap="round" stroke-linejoin="round"/>'
+             + p.text(H, "Launch Nest", x0 + 26, y0 + 182, 24, "#FFFFFF")
+             + p.text(M, "launchnest.com.au", x0 + 26, y0 + 206, 13.5, "#FFE2D3") + "</g>")
+    return 300, "Need a site that gets found? Start a project at launchnest.com.au.", "".join(b)
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# README
+# LINK BUTTONS
+# ════════════════════════════════════════════════════════════════════════════
+
+BUTTONS = [
+    ("linkedin", "LinkedIn", LINKS["linkedin"]),
+    ("ravan", "Ravan Studio", LINKS["ravan"]),
+    ("github", "Repositories", LINKS["github"] + "?tab=repositories"),
+    ("orcid", "ORCID", LINKS["orcid"]),
+]
+
+
+def button(mode: str, label: str) -> tuple[str, int]:
+    p = Panel(mode)
+    t = p.t
+    h, size = 52, 17
+    w = int(H.width(label, size) + 24 + 52)
+    body = (f'<rect x="1" y="1" width="{w - 2}" height="{h - 2}" rx="{h / 2 - 1}" fill="{t["bg"]}" stroke="{t["line2"]}" stroke-width="1.5"/>'
+            + p.text(H, label, 24, 32.5, size)
+            + f'<circle cx="{w - 27}" cy="26" r="13" fill="{t["accent"]}"/>'
+            + f'<path d="M{w - 31.5} 30.5l9-9m-6.5 0h6.5v6.5" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>')
+    lab = escape(label)
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-label="{lab}">'
+           f'<title>{lab}</title><defs>{p.doc.defs()}</defs>{body}</svg>')
+    return svg, w
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# README (visuals only)
 # ════════════════════════════════════════════════════════════════════════════
 
 
-def pic(name: str, alt: str, link: str | None = None) -> str:
+def pic(name: str, alt: str, link: str | None = None, width: str = "100%", height: str = "") -> str:
+    hattr = f' height="{height}"' if height else ""
     inner = (f'<picture>\n  <source media="(prefers-color-scheme: dark)" srcset="./assets/{name}-dark.svg" />\n'
              f'  <source media="(prefers-color-scheme: light)" srcset="./assets/{name}-light.svg" />\n'
-             f'  <img src="./assets/{name}-light.svg" width="100%" alt="{escape(alt)}" />\n</picture>')
+             f'  <img src="./assets/{name}-light.svg" width="{width}"{hattr} alt="{escape(alt)}" />\n</picture>')
     return f'<a href="{link}">\n{inner}\n</a>' if link else inner
 
 
-def readme(alts: dict[str, str]) -> str:
+def readme(alts: dict[str, str], widths: dict[str, int]) -> str:
     L = LINKS
-    faq = "\n\n".join(f"<details>\n<summary><b>{q}</b></summary>\n<br />\n{a}\n</details>" for q, a in FAQ)
+    order = [("hero", None), ("portfolio", None), ("work-amin", L["amin"]), ("seo-case", None), ("work-studios", L["launchnest"]),
+             ("method", None), ("process", None), ("stack", None), ("contact", L["launchnest"])]
+    panels = "\n\n<br />\n\n".join(pic(n, alts[n], link) for n, link in order)
+    # one line per button: whitespace inside a link renders as an underlined gap
+    buttons = "\n".join(" ".join(pic(f"btn-{k}", label, url, str(widths[k]), "52").split()).replace("> <", "><")
+                        for k, label, url in BUTTONS)
     return f"""<!--
-  Zabih Bakhtiari (zabihbakhtiari): full-stack developer and SEO director.
+  Zabih Bakhtiari (zabihbakhtiari): full-stack developer and SEO director. {SITES_BUILT} websites built and launched.
   Co-founder of Launch Nest Studio (design, build and SEO studio, Adelaide) and Ravan Studio (web development, design and SEO agency).
   Latest build: Amin Building Supplies ({L['amin']}), a Shopify store in Dandenong South, Melbourne.
   Generated by build.py. Edit the content there and run `python build.py`.
 -->
 
-{pic("hero", alts["hero"])}
+{panels}
 
 <p align="center">
-  <b>Hi I'm Zabih Bakhtiari</b> Who builds websites, web apps and search visibility for Australian trades and local businesses.<br />
-  Full-stack developer, SEO director and co-founder of <a href="{L['launchnest']}">Launch Nest Studio</a> and <a href="{L['ravan']}">Ravan Studio</a>.
-</p>
-
-## Selected work
-
-{pic("work-amin", alts["work-amin"], L["amin"])}
-
-<br />
-
-{pic("work-studios", alts["work-studios"], L["launchnest"])}
-
-## How a site gets found
-
-I write the code and I run the SEO, so the search plan is built into the site from the first commit, not bolted on after launch.
-
-{pic("method", alts["method"])}
-
-## Process
-
-Every job runs the same way, and every launch clears the snag list first.
-
-{pic("process", alts["process"])}
-
-## Stack
-
-{pic("stack", alts["stack"])}
-
-## FAQ
-
-{faq}
-
-<br />
-
-{pic("contact", alts["contact"], L["launchnest"])}
-
-<p align="center">
-  <a href="{L['launchnest']}">Launch Nest Studio</a> ·
-  <a href="{L['ravan']}">Ravan Studio</a> ·
-  <a href="{L['linkedin']}">LinkedIn</a> ·
-  <a href="{L['orcid']}">ORCID</a> ·
-  <a href="{L['github']}?tab=repositories">Repositories</a>
+{buttons}
 </p>
 """
 
@@ -578,7 +763,9 @@ def main() -> None:
     data = json.loads((SRC / "data.json").read_text(encoding="utf-8"))["amin"]
     builders = {
         "hero": hero,
+        "portfolio": portfolio,
         "work-amin": lambda p: work_amin(p, data),
+        "seo-case": seo_case,
         "work-studios": studios,
         "method": method,
         "process": snags,
@@ -586,6 +773,8 @@ def main() -> None:
         "contact": contact,
     }
     ASSETS.mkdir(exist_ok=True)
+    for old in ASSETS.glob("*.svg"):
+        old.unlink()
     alts = {}
     for name, fn in builders.items():
         for mode in ("dark", "light"):
@@ -595,7 +784,12 @@ def main() -> None:
             (ASSETS / f"{name}-{mode}.svg").write_text(svg, encoding="utf-8")
             alts[name] = alt
         print(f"  {name:13} {h:4}px  {len(svg) // 1024:4} KB")
-    (ROOT / "README.md").write_text(readme(alts), encoding="utf-8")
+    widths = {}
+    for key, label, _ in BUTTONS:
+        for mode in ("dark", "light"):
+            svg, widths[key] = button(mode, label)
+            (ASSETS / f"btn-{key}-{mode}.svg").write_text(svg, encoding="utf-8")
+    (ROOT / "README.md").write_text(readme(alts, widths), encoding="utf-8")
     print("Wrote README.md")
 
 

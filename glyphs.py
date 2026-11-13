@@ -37,7 +37,9 @@ class Face:
     def __init__(self, key: str, file: str, axes: dict[str, float]):
         _ensure_fonts()
         vf = TTFont(FONT_DIR / file)
-        static = instancer.instantiateVariableFont(vf, axes)
+        # Variable fonts draw letters from overlapping contours. Merge them, or
+        # GitHub's downscaling leaves faint seams that make the type look scratchy.
+        static = instancer.instantiateVariableFont(vf, axes, overlap=instancer.OverlapMode.REMOVE)
         buf = io.BytesIO()
         static.save(buf)
         data = buf.getvalue()
